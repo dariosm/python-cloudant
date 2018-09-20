@@ -49,12 +49,14 @@ class CouchDatabase(dict):
     :param int fetch_limit: Optional fetch limit used to set the max number of
         documents to fetch per query during iteration cycles.  Defaults to 100.
     """
-    def __init__(self, client, database_name, fetch_limit=100):
+    def __init__(self, client, database_name, fetch_limit=100,
+                 partitioned=False):
         super(CouchDatabase, self).__init__()
         self.client = client
         self._database_host = client.server_url
         self.database_name = database_name
         self._fetch_limit = fetch_limit
+        self._partitioned = partitioned
         self.result = Result(self.all_docs)
 
     @property
@@ -242,7 +244,8 @@ class CouchDatabase(dict):
         sdoc.fetch()
         return sdoc
 
-    def get_view_result(self, ddoc_id, view_name, raw_result=False, **kwargs):
+    def get_view_result(self, ddoc_id, view_name, raw_result=False,
+                        partition_key=None, **kwargs):
         """
         Retrieves the view result based on the design document and view name.
         By default the result is returned as a
@@ -334,7 +337,8 @@ class CouchDatabase(dict):
         :returns: The result content either wrapped in a QueryResult or
             as the raw response JSON content
         """
-        view = View(DesignDocument(self, ddoc_id), view_name)
+        view = View(DesignDocument(self, ddoc_id), view_name,
+                    partition_key=partition_key)
         if raw_result:
             return view(**kwargs)
         if kwargs:
@@ -357,7 +361,9 @@ class CouchDatabase(dict):
         if not throw_on_exists and self.exists():
             return self
 
-        resp = self.r_session.put(self.database_url)
+        resp = self.r_session.put(self.database_url, params={
+            'partitioned': self._partitioned
+        })
         if resp.status_code == 201 or resp.status_code == 202:
             return self
 
@@ -1073,7 +1079,7 @@ class CouchDatabase(dict):
         index.delete()
 
     def get_query_result(self, selector, fields=None, raw_result=False,
-                         **kwargs):
+                         partition_key=None, **kwargs):
         """
         Retrieves the query result from the specified database based on the
         query parameters provided.  By default the result is returned as a
@@ -1142,9 +1148,10 @@ class CouchDatabase(dict):
             as the raw response JSON content
         """
         if fields:
-            query = Query(self, selector=selector, fields=fields)
+            query = Query(self, selector=selector, fields=fields,
+                          partition_key=partition_key)
         else:
-            query = Query(self, selector=selector)
+            query = Query(self, selector=selector, partition_key=partition_key)
         if raw_result:
             return query(**kwargs)
         if kwargs:
@@ -1165,11 +1172,13 @@ class CloudantDatabase(CouchDatabase):
     :param int fetch_limit: Optional fetch limit used to set the max number of
         documents to fetch per query during iteration cycles.  Defaults to 100.
     """
-    def __init__(self, client, database_name, fetch_limit=100):
+    def __init__(self, client, database_name, fetch_limit=100,
+                 partitioned=False):
         super(CloudantDatabase, self).__init__(
             client,
             database_name,
-            fetch_limit=fetch_limit
+            fetch_limit=fetch_limit,
+            partitioned=partitioned
         )
 
     def security_document(self):
@@ -1278,7 +1287,8 @@ class CloudantDatabase(CouchDatabase):
 
         return resp.json()
 
-    def get_search_result(self, ddoc_id, index_name, **query_params):
+    def get_search_result(self, ddoc_id, index_name, partition_key=None,
+                          **query_params):
         """
         Retrieves the raw JSON content from the remote database based on the
         search index on the server, using the query_params provided as query
@@ -1393,10 +1403,14 @@ class CloudantDatabase(CouchDatabase):
         # Execute query search
         headers = {'Content-Type': 'application/json'}
         ddoc = DesignDocument(self, ddoc_id)
-        resp = self.r_session.post(
-            '/'.join([ddoc.document_url, '_search', index_name]),
-            headers=headers,
-            data=json.dumps(query_params, cls=self.client.encoder)
-        )
+
+        if partition_key:
+            url = '/'.join((ddoc.partition_url(partition_key), '_search',
+                            index_name))
+        else:
+            url = '/'.join([ddoc.document_url, '_search', index_name])
+
+        resp = self.r_session.post(url, headers=headers, data=json.dumps(
+            query_params, cls=self.client.encoder))
         resp.raise_for_status()
         return resp.json()
