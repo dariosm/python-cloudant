@@ -27,6 +27,24 @@ class CouchDatabasePartition(object):
         self._db = db
         self._partition_key = partition_key
 
+    def __contains__(self, item):
+        return self._db.__contains__(self._get_doc_id(item))
+
+    def __getitem__(self, item):
+        return self._db.__getitem__(self._get_doc_id(item))
+
+    def _get_doc_id(self, doc_key):
+        """
+        Get document ID.
+
+        :param doc_key: Document key as string.
+        :return: Document ID as string.
+        """
+        return '{partition_key}:{doc_key}'.format(
+            partition_key=self._partition_key,
+            doc_key=doc_key
+        )
+
     @property
     def partition_key(self):
         """
