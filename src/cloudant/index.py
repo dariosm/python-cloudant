@@ -44,13 +44,14 @@ class Index(object):
         :func:`~cloudant.database.CloudantDatabase.create_query_index`.
     """
 
-    def __init__(self, database, design_document_id=None, name=None, **kwargs):
+    def __init__(self, database, design_document_id=None, name=None, partitioned=False, **kwargs):
         self._database = database
         self._r_session = self._database.r_session
         self._ddoc_id = design_document_id
         self._name = name
         self._type = JSON_INDEX_TYPE
         self._def = kwargs
+        self._partitioned = partitioned
 
     @property
     def index_url(self):
@@ -99,6 +100,16 @@ class Index(object):
         """
         return self._def
 
+    @property
+    def partitioned(self):
+        """
+        Establish if this index is partitioned.
+
+        :return: True if index is partitioned, else False.
+        """
+
+        return self._partitioned
+
     def as_a_dict(self):
         """
         Displays the index as a dictionary.  This includes the design document
@@ -110,7 +121,8 @@ class Index(object):
             'ddoc': self._ddoc_id,
             'name': self._name,
             'type': self._type,
-            'def': self._def
+            'def': self._def,
+            'partitioned': self._partitioned
         }
 
         return index_dict
@@ -135,6 +147,8 @@ class Index(object):
                 raise CloudantArgumentError(123, self._name)
         self._def_check()
         payload['index'] = self._def
+
+        payload['partitioned'] = self._partitioned
 
         headers = {'Content-Type': 'application/json'}
         resp = self._r_session.post(

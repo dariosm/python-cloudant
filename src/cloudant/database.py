@@ -1013,6 +1013,7 @@ class CouchDatabase(dict):
                     self,
                     data.get('ddoc'),
                     data.get('name'),
+                    partitioned=data.get('partitioned', False),
                     **data.get('def', {})
                 ))
             elif data.get('type') == TEXT_INDEX_TYPE:
@@ -1020,6 +1021,7 @@ class CouchDatabase(dict):
                     self,
                     data.get('ddoc'),
                     data.get('name'),
+                    partitioned=data.get('partitioned', False),
                     **data.get('def', {})
                 ))
             elif data.get('type') == SPECIAL_INDEX_TYPE:
@@ -1027,6 +1029,7 @@ class CouchDatabase(dict):
                     self,
                     data.get('ddoc'),
                     data.get('name'),
+                    partitioned=data.get('partitioned', False),
                     **data.get('def', {})
                 ))
             else:
@@ -1038,6 +1041,7 @@ class CouchDatabase(dict):
             design_document_id=None,
             index_name=None,
             index_type='json',
+            partitioned=False,
             **kwargs
     ):
         """
@@ -1075,9 +1079,11 @@ class CouchDatabase(dict):
             remote database
         """
         if index_type == JSON_INDEX_TYPE:
-            index = Index(self, design_document_id, index_name, **kwargs)
+            index = Index(self, design_document_id, index_name,
+                          partitioned=partitioned, **kwargs)
         elif index_type == TEXT_INDEX_TYPE:
-            index = TextIndex(self, design_document_id, index_name, **kwargs)
+            index = TextIndex(self, design_document_id, index_name,
+                              partitioned=partitioned, **kwargs)
         else:
             raise CloudantArgumentError(103, index_type)
         index.create()
