@@ -121,9 +121,11 @@ class Index(object):
             'ddoc': self._ddoc_id,
             'name': self._name,
             'type': self._type,
-            'def': self._def,
-            'partitioned': self._partitioned
+            'def': self._def
         }
+
+        if self._partitioned:
+            index_dict['partitioned'] = True
 
         return index_dict
 
@@ -148,7 +150,8 @@ class Index(object):
         self._def_check()
         payload['index'] = self._def
 
-        payload['partitioned'] = self._partitioned
+        if self._partitioned:
+            payload['partitioned'] = True
 
         headers = {'Content-Type': 'application/json'}
         resp = self._r_session.post(
